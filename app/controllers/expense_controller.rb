@@ -7,7 +7,7 @@ class ExpenseController < ApplicationController
 
   def create
     paid_by = User.find_by_name(params[:paid_by])
-    paid_for = JSON.parser(params[:paid_for])
+    paid_for = JSON.parse(params[:paid_for]).with_indifferent_access
     render json: { message: 'User does not exist' }, status: 422 if non_existing_user_found(paid_for.keys)
     Expense.create(paid_by: paid_by.id, paid_for: params[:paid_for], amount: params[:amount], created_by: params[:created_by])
     paid_for.each do |k, v|
@@ -15,7 +15,7 @@ class ExpenseController < ApplicationController
       next if owed_by.id == paid_by.id
 
       settlement = Settlement.where(owed_by: owed_by.id, owed_to: paid_by.id)
-      Settlement.create(owed_by: owed_by.id, owed_to: paid_by.id, amount: v) unless settlement.present?
+      Settlement.create(owed_by: owed_by.id, owed_to: paid_by.id, amount: v) if settlement.nil?
       settlement_amount = settlement.amount - v.to_i
       if settlement_amount == 0
         settlement.destroy!
@@ -27,7 +27,15 @@ class ExpenseController < ApplicationController
     end
   end
 
-  def show; end
+  def show
+    settlements = Settlement.all
+    render json: { settlements: settlements }, status: 200
+
+
+
+  rescue => e
+    render json: { message: "Unable to fetch settlements! #{e.message}" }, status: 500
+  end
 
   def update; end
 
